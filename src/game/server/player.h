@@ -30,13 +30,18 @@ public:
 	void Snap(int SnappingClient);
 	void FakeSnap();
 
-	void OnDirectInput(CNetObj_PlayerInput *NewInput);
-	void OnPredictedInput(CNetObj_PlayerInput *NewInput);
+	void OnDirectInput(const CNetObj_PlayerInput *NewInput);
+	void OnPredictedInput(const CNetObj_PlayerInput *NewInput);
 	void OnDisconnect(const char *pReason);
 
 	void KillCharacter(int Weapon = WEAPON_GAME);
 	CCharacter *GetCharacter();
-	bool IsBot() const { return m_pBotController != NULL; }
+	bool IsBot() const;
+
+
+	bool AddClientInfoSnap(const char *pName, const char *pClanName, int Country, const char *pSkinName, bool UseCustomColor, int ColorBody, int ColorFeet);
+	bool AddPlayerInfoSnap(int Score, int Team, int Latency, bool Local);
+	bool AddSpectatorInfoSnap(int SpectatorID, int X, int Y);
 
 	//---------------------------------------------------------
 	// this is used for snapping so we know how we can clip the view for the player
@@ -73,12 +78,16 @@ public:
 	int m_LastKill;
 
 	// TODO: clean this up
-	struct
+	struct CTeeInfos
 	{
-		char m_SkinName[64];
+		char m_aSkinName[64];
 		int m_UseCustomColor;
 		int m_ColorBody;
 		int m_ColorFeet;
+
+		// for lua
+		const char *GetSkinName() const { return m_aSkinName; }
+		void SetSkinName(const char *pSkinName) { str_copyb(m_aSkinName, pSkinName); }
 	} m_TeeInfos;
 
 	int m_RespawnTick;
@@ -108,8 +117,6 @@ public:
 private:
 	CCharacter *m_pCharacter;
 	CGameContext *m_pGameServer;
-
-	class CPlayerDummy * const m_pBotController;
 
 	//
 	bool m_Spawning;

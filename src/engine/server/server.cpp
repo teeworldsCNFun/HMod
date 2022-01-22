@@ -312,9 +312,6 @@ int CServer::TrySetClientName(int ClientID, const char *pName)
 	if(m_aClients[ClientID].m_aName[0] && str_comp(m_aClients[ClientID].m_aName, aTrimmedName) == 0)
 		return 0;
 
-	char aBuf[256];
-	str_format(aBuf, sizeof(aBuf), "'%s' -> '%s'", pName, aTrimmedName);
-	Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "server", aBuf);
 	pName = aTrimmedName;
 
 	// make sure that two clients doesn't have the same name
@@ -327,6 +324,7 @@ int CServer::TrySetClientName(int ClientID, const char *pName)
 
 	// set the client name
 	str_copy(m_aClients[ClientID].m_aName, pName, MAX_NAME_LENGTH);
+	Console()->Printf(IConsole::OUTPUT_LEVEL_ADDINFO, "server", "'%s' -> '%s'='%s'", ClientName(ClientID), pName, aTrimmedName);
 	return 0;
 }
 
@@ -342,13 +340,6 @@ void CServer::SetClientName(int ClientID, const char *pName)
 
 	char aCleanName[MAX_NAME_LENGTH];
 	str_copy(aCleanName, pName, sizeof(aCleanName));
-
-	// clear name
-	for(char *p = aCleanName; *p; ++p)
-	{
-		if(*p < 32)
-			*p = ' ';
-	}
 
 	if(TrySetClientName(ClientID, aCleanName))
 	{
@@ -527,7 +518,7 @@ bool CServer::HasAccess(int ClientID, int AccessLevel)
 	return m_aClients[ClientID].m_AccessLevel <= AccessLevel;
 }
 
-int CServer::GetClientInfo(int ClientID, CClientInfo *pInfo)
+int CServer::GetClientInfo(int ClientID, CClientInfo *pInfo) const
 {
 	dbg_assert(ClientID >= 0 && ClientID < MAX_CLIENTS, "client_id is not valid");
 	dbg_assert(pInfo != 0, "info can not be null");
@@ -549,19 +540,26 @@ void CServer::GetClientAddr(int ClientID, char *pAddrStr, int Size)
 		net_addr_str(m_NetServer.ClientAddr(ClientID), pAddrStr, Size, false);
 }
 
+std::string CServer::GetClientAddrLua(int ClientID)
+{
+	if(ClientID < 0 || ClientID >= MAX_CLIENTS || m_aClients[ClientID].m_State != CServer::CClient::STATE_INGAME)
+		return "(invalid)";
+	if(m_aClients[ClientID].m_State == CServer::CClient::STATE_INGAME) {
+		char s[NETADDR_MAXSTRSIZE] = {0};
+		GetClientAddr(ClientID, s, sizeof(s));
+
+		return s;
+	}
+	return "(invalid)";
+}
+
 
 const char *CServer::ClientName(int ClientID)
 {
 	if(ClientID < 0 || ClientID >= MAX_CLIENTS || m_aClients[ClientID].m_State == CServer::CClient::STATE_EMPTY)
 		return "(invalid)";
-	if(m_aClients[ClientID].m_State == CServer::CClient::STATE_INGAME)
+	if(m_aClients[ClientID].m_State >= CServer::CClient::STATE_INGAME)
 		return m_aClients[ClientID].m_aName;
-	else if(m_aClients[ClientID].m_State == CServer::CClient::STATE_DUMMY)
-	{
-		static char aID[16];
-		str_formatb(aID, "Dummy %i", ClientID);
-		return aID;
-	}
 	else
 		return "(connecting)";
 
@@ -602,50 +600,180 @@ int CServer::MaxClients() const
 	return m_NetServer.MaxClients();
 }
 
-IDMapT *CServer::GetIdMap(int ClientID)
+void CServer::WriteIdMap(int ClientID, int IdTakingSlot, int ChosenSlot)
 {
-	return m_aaIDMap[ClientID];
+	if(dbg_assert_strict(ClientID >= 0 && ClientID < MAX_CLIENTS, "Invalid ClientID")) return;
+	if(dbg_assert_strict(IdTakingSlot >= 0 && IdTakingSlot < MAX_CLIENTS, "Invalid IdTakingSlot")) return;
+
+	const int LargestAssignableID = (
+			m_aClients[ClientID].Supports(CClient::SUPPORTS_128P)
+			? MAX_CLIENTS
+			: m_aClients[ClientID].Supports(CClient::SUPPORTS_64P)
+			  ? DDNET_MAX_CLIENTS-1
+			  : VANILLA_MAX_CLIENTS-1
+	) - 1; // one space for chat-fakeid
+
+	if(dbg_assert_strict(ChosenSlot >= 0 && ChosenSlot <= LargestAssignableID, "Invalid ChosenSlot")) return;
+
+	// debug: make sure we don't overwrite shit
+	if(IdTakingSlot == ClientID)
+		dbg_assert_strict(ChosenSlot == 0, "self going into wrong slot?!?");
+	dbg_assert_strict(m_aaIDMap[ClientID][ChosenSlot] == IDMapT::DEFAULT, "writing into non-empty slot");
+	dbg_assert_strict(m_aaIDMapReverse[ClientID][IdTakingSlot] == IDMapT::DEFAULT, "assigning player into a second slot!?");
+
+	m_aaIDMap[ClientID][ChosenSlot] = IdTakingSlot; // "as ChosenSlot we display IdTakingSlot"
+	m_aaIDMapReverse[ClientID][IdTakingSlot] = ChosenSlot; // "IdTakingSlot is displayed as ChosenSlot"
+
+//	dbg_msg("debug", "writing into IDMap of %i: Client %i taking slot %i", ClientID, IdTakingSlot, ChosenSlot);
 }
 
-bool IServer::IDTranslate(int *pTarget, int ForClientID)
+void CServer::ResetIdMap(int ClientID)
 {
+	if(dbg_assert_strict(ClientID >= 0 && ClientID < MAX_CLIENTS, "Invalid ClientID")) return;
+
+	for(int i = 0; i < MAX_CLIENTS; i++)
+	{
+		// InternalID -> MappedID
+		m_aaIDMapReverse[ClientID][i].reset();
+
+		// MappedID (aka Slot) -> InternalID
+		if(i < DDNET_MAX_CLIENTS)
+			m_aaIDMap[ClientID][i].reset();
+	}
+
+//	dbg_msg("debug", "resetting IDMap of %i", ClientID);
+}
+
+int CServer::ResetIdMapSlotOf(int ClientID, int SlotOfWhom)
+{
+	if(dbg_assert_strict(ClientID >= 0 && ClientID < MAX_CLIENTS, "Invalid ClientID")) return -1;
+	if(dbg_assert_strict(SlotOfWhom >= 0 && SlotOfWhom < MAX_CLIENTS, "Invalid SlotOfWhom")) return -1;
+
+	int SlotID = m_aaIDMapReverse[ClientID][SlotOfWhom];
+	if(dbg_assert_strict(SlotID >= 0 && SlotID < DDNET_MAX_CLIENTS, "ID does not have a slot / broken reverse map")) return -1;
+
+	m_aaIDMap[ClientID][SlotID].reset();
+	m_aaIDMapReverse[ClientID][SlotOfWhom].reset();
+
+	return SlotID;
+
+//	dbg_msg("debug", "resetting slot taken by %i in IDMap of %i", SlotOfWhom, ClientID);
+}
+
+bool CServer::IDTranslate(int *pInOutInternalID, int ForClientID) const
+{
+	if(dbg_assert_strict(*pInOutInternalID >= 0 && *pInOutInternalID < MAX_CLIENTS, "invalid ID to be translated")) return false;
+	if(dbg_assert_strict(ForClientID >= 0 && ForClientID < MAX_CLIENTS, "ID to translate for is invalid")) return false;
+
 	CClientInfo Info;
 	GetClientInfo(ForClientID, &Info);
-	if(ForClientID > DDNET_MAX_CLIENTS-1 && Info.m_Is128)
-		return true;
-	if(ForClientID > VANILLA_MAX_CLIENTS-1 && (Info.m_Is64 || Info.m_Is128))
+
+	// no translation for fully compliant clients
+	if(Info.m_Is128)
 		return true;
 
 	// we need to translate
+	/*const int DbgOldTarget = *pInOutInternalID;
+
 	const IDMapT *aMap = GetIdMap(ForClientID);
 	bool Found = false;
-	for(int i = 0; i < (Info.m_Is64 ? DDNET_MAX_CLIENTS : VANILLA_MAX_CLIENTS); i++)
+	// go through all the slots
+	for(int i = 0; i < (Info.m_Is64 ? FAKE_ID_DDNET : FAKE_ID_VANILLA); i++)
 	{
-		if(*pTarget == aMap[i])
+		// check if they are in this slot
+		if(*pInOutInternalID == aMap[i])
 		{
-			*pTarget = i;
+			// if the are, then that's gonna be their shiny, new, translated ID
+			*pInOutInternalID = i;
 			Found = true;
 			break;
 		}
 	}
 
-	return Found;
-}
+	// XXX just for dbg
+	if(!Found)
+		*pInOutInternalID = IDMapT::DEFAULT;*/
 
-bool IServer::IDTranslateReverse(int *pTarget, int ForClientID)
-{
-	CClientInfo Info;
-	GetClientInfo(ForClientID, &Info);
-	if(Info.m_Is64)
-		return true;
+	// the reverse map holds the information we need, avoiding the linear search
+	const IDMapT *aRevMap = GetRevMap(ForClientID);
+	int MappedID = aRevMap[*pInOutInternalID/*DbgOldTarget*/];
 
-	IDMapT *aMap = GetIdMap(ForClientID);
-	if (aMap[*pTarget] == -1)
+	/*#ifdef CONF_DEBUG
+	if(*pInOutInternalID != MappedID)
+	{
+		DumpIdMap(ForClientID);
+		dbg_assert(*pInOutInternalID == MappedID, "IDMap linear search disagrees with reverse map lookup");
+	}
+	#endif*/
+
+	if(MappedID == IDMapT::DEFAULT)
 		return false;
 
-	*pTarget = aMap[*pTarget];
+	*pInOutInternalID = MappedID;
 
 	return true;
+}
+
+bool CServer::IDTranslateReverse(int *pInOutInternalID, int ForClientID) const
+{
+	if(dbg_assert_strict(*pInOutInternalID >= 0 && *pInOutInternalID < MAX_CLIENTS, "invalid ID to be translated")) return false;
+	if(dbg_assert_strict(ForClientID >= 0 && ForClientID < MAX_CLIENTS, "ID to translate for is invalid")) return false;
+
+	CClientInfo Info;
+	GetClientInfo(ForClientID, &Info);
+
+	// no translation for fully compliant clients
+	if(Info.m_Is128)
+		return true;
+
+	// local player always has ID 0
+	if(*pInOutInternalID == ForClientID)
+	{
+		*pInOutInternalID = 0;
+		return true;
+	}
+
+	// this info can be read right out of the id map
+	const IDMapT *aMap = GetIdMap(ForClientID);
+	if (aMap[*pInOutInternalID] == IDMapT::DEFAULT)
+		return false;
+
+	*pInOutInternalID = aMap[*pInOutInternalID];
+
+	return true;
+}
+
+void CServer::DumpIdMap(int ForClientID) const
+{
+	const IDMapT *aIDMap = GetIdMap(ForClientID);
+	const IDMapT *aRevMap = GetRevMap(ForClientID);
+	dbg_msg("debug", "------------------[ ID MAP OF %i ]-----------------------", ForClientID);
+	for(int Slot = 0; Slot < MAX_CLIENTS/2; Slot++)
+	{
+		// InternalID -> MappedID
+		dbg_msg("debug", "  %3i -> %2i & %3i        %3i -> %2i & %3i", aIDMap[Slot],Slot,aRevMap[aIDMap[Slot]]   ,   aIDMap[Slot+MAX_CLIENTS/2],Slot+MAX_CLIENTS/2,aRevMap[aIDMap[Slot+MAX_CLIENTS/2]]);
+	}
+	dbg_msg("debug", "****************[ REVERSE MAP OF %i ]********************", ForClientID);
+	for(int InternalID = 0; InternalID < MAX_CLIENTS/2; InternalID++)
+	{
+		dbg_msg("debug", "  %3i -> %2i              %3i -> %2i", InternalID,aRevMap[InternalID]  ,  InternalID+MAX_CLIENTS/2,aRevMap[InternalID+MAX_CLIENTS/2]);
+	}
+
+	dbg_msg("debug", "end ID map");
+}
+
+int CServer::IDTranslateLua(int InternalID, int ForClientID) const
+{
+	if(!IDTranslate(&InternalID, ForClientID))
+		return -1;
+	return InternalID;
+}
+
+int CServer::IDTranslateReverseLua(int InternalID, int ForClientID) const
+{
+	if(!IDTranslateReverse(&InternalID, ForClientID))
+		return -1;
+	return InternalID;
 }
 
 int CServer::SendMsg(CMsgPacker *pMsg, int Flags, int ClientID)
@@ -659,13 +787,8 @@ int CServer::SendMsgEx(CMsgPacker *pMsg, int Flags, int ClientID, bool System)
 	if(!pMsg)
 		return -1;
 
-#ifdef CONF_DEBUG
-	if(g_Config.m_DbgDummies)
-	{
-		if(ClientID >= MAX_CLIENTS-g_Config.m_DbgDummies)
-			return 1;
-	}
-#endif
+	if(ClientIsDummy(ClientID))
+		return 1;
 
 	mem_zero(&Packet, sizeof(CNetChunk));
 
@@ -728,7 +851,7 @@ void CServer::DoSnapshot()
 	// create snapshots for all clients
 	for(int i = 0; i < MAX_CLIENTS; i++)
 	{
-		// client must be ingame to recive snapshots
+		// client must be ingame (and not a dummy) to recive snapshots
 		if(m_aClients[i].m_State != CClient::STATE_INGAME)
 			continue;
 
@@ -884,6 +1007,10 @@ int CServer::DelClientCallback(int ClientID, const char *pReason, void *pUser)
 void CServer::InitDummy(int ClientID)
 {
 	m_aClients[ClientID].m_State = CClient::STATE_DUMMY;
+
+	char aDummyName[MAX_NAME_LENGTH];
+	str_formatb(aDummyName, "Dummy %i", ClientID);
+	SetClientName(ClientID, aDummyName);
 }
 
 void CServer::PurgeDummy(int ClientID)
@@ -2200,7 +2327,7 @@ void CServer::ConDbgDumpIDMap(IConsole::IResult *pResult, void *pUser)
 	int ClientID = pResult->GetCID();
 	int MapOfID = pResult->NumArguments() > 0 ? pResult->GetInteger(0) : ClientID;
 
-	IDMapT *aIDMap = pServer->GetIdMap(MapOfID);
+	const IDMapT *aIDMap = pServer->GetIdMap(MapOfID);
 	pServer->Console()->PrintfTo(ClientID, "debug", "------------------[ ID MAP OF %i ]-----------------------", MapOfID);
 	for(int i = 0; i < DDNET_MAX_CLIENTS/2; i++)
 	{

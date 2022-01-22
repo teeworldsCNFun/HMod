@@ -20,7 +20,7 @@
 #include "luabinding.h"
 #include "lua/lua_config.h"
 #include "lua/luajson.h"
-#include "lua/luasql.h"
+#include "engine/server/lua/luasqlite.h"
 #include "lua_class.h"
 #include "lua.h"
 
@@ -114,6 +114,7 @@ void CLua::RegisterLuaCallbacks()
 			.addFunction("Parse", &CLuaJson::Parse)
 			.addFunction("Convert", &CLuaJson::Convert)
 			.addFunction("Serialize", &CLuaJson::Serialize)
+			.addFunction("Read", &CLuaJson::Read)
 		.endNamespace()
 
 		// sql
@@ -138,13 +139,13 @@ void CLua::RegisterLuaCallbacks()
 			.addFunction("GetSizeN", &CQuery::GetSizeN)
 		.endClass()
 
-		.beginClass< CLuaSqlConn >("CLuaSqlConn")
+		.beginClass< CLuaSqlite >("CLuaSqlite")
 			//.addConstructor <void (*) (const char *)> ()
-			.addFunction("Execute", &CLuaSqlConn::Execute)
-			.addFunction("Flush", &CLuaSqlConn::Flush)
-			.addFunction("Work", &CLuaSqlConn::Work)
-			.addFunction("Clear", &CLuaSqlConn::Clear)
-			.addFunction("GetDatabasePath", &CLuaSqlConn::GetDatabasePath)
+			.addFunction("Execute", &CLuaSqlite::Execute)
+			.addFunction("Flush", &CLuaSqlite::Flush)
+			.addFunction("Work", &CLuaSqlite::Work)
+			.addFunction("Clear", &CLuaSqlite::Clear)
+			.addFunction("GetDatabasePath", &CLuaSqlite::GetDatabasePath)
 		.endClass()
 
 		.beginClass< CLuaSql >("CLuaSql")
@@ -275,6 +276,8 @@ void CLua::RegisterLuaCallbacks()
 			.addFunction("CreateEntityPickup", &CGameContext::CreateEntityPickup)
 			.addFunction("CreateEntityProjectile", &CGameContext::CreateEntityProjectile)
 			.addFunction("CreateEntityCustom", &CGameContext::CreateEntityCustom)
+			.addFunction("CreateBot", &CGameContext::CreateBot)
+			.addFunction("RemoveBot", &CGameContext::RemoveBot)
 
 			.addFunction("GameType", &CGameContext::GameType)
 			.addFunction("Version", &CGameContext::Version)
@@ -291,8 +294,9 @@ void CLua::RegisterLuaCallbacks()
 
 			.addProperty("MaxClients", &IServer::MaxClients)
 			.addFunction("ClientIngame", &IServer::ClientIngame)
+			.addFunction("ClientIsDummy", &IServer::ClientIsDummy)
 			.addFunction("GetClientInfo", &IServer::GetClientInfo)
-			.addFunction("GetClientAddr", &IServer::GetClientAddr)
+			.addFunction("GetClientAddr", &IServer::GetClientAddrLua)
 
 			.addFunction("GetClientName", &IServer::ClientName)
 			.addFunction("GetClientClan", &IServer::ClientClan)
@@ -310,13 +314,18 @@ void CLua::RegisterLuaCallbacks()
 			.addFunction("Kick", &IServer::Kick)
 
 			.addFunction("SendRconLine", &IServer::SendRconLine)
+
+			.addFunction("IDTranslate", &IServer::IDTranslateLua)
+			.addFunction("IDTranslateReverse", &IServer::IDTranslateReverseLua)
 		.endClass()
 
 		.deriveClass<CServer, IServer>("CServer")
 		.endClass()
 
 		/// [CCharacterCore].Input
+		/// [CCharacter]:GetInput()
 		.beginClass<CNetObj_PlayerInput>("CNetObj_PlayerInput")
+			.addConstructor <void (*) ()> ()
 			.addData("Direction", &CNetObj_PlayerInput::m_Direction)
 			.addData("TargetX", &CNetObj_PlayerInput::m_TargetX)
 			.addData("TargetY", &CNetObj_PlayerInput::m_TargetY)
@@ -327,6 +336,14 @@ void CLua::RegisterLuaCallbacks()
 			.addData("WantedWeapon", &CNetObj_PlayerInput::m_WantedWeapon)
 			.addData("NextWeapon", &CNetObj_PlayerInput::m_NextWeapon)
 			.addData("PrevWeapon", &CNetObj_PlayerInput::m_PrevWeapon)
+		.endClass()
+
+		// [CPlayer].TeeInfos
+		.beginClass<CPlayer::CTeeInfos>("CPlayer_CTeeInfos")
+			.addProperty("SkinName", &CPlayer::CTeeInfos::GetSkinName, &CPlayer::CTeeInfos::SetSkinName)
+			.addData("UseCustomColor", &CPlayer::CTeeInfos::m_UseCustomColor)
+			.addData("ColorBody", &CPlayer::CTeeInfos::m_ColorBody)
+			.addData("ColorFeet", &CPlayer::CTeeInfos::m_ColorFeet)
 		.endClass()
 
 		/// Srv.Game:GetPlayer(CID)
@@ -342,6 +359,10 @@ void CLua::RegisterLuaCallbacks()
 			.addFunction("Tick", &CPlayer::Tick)
 			.addFunction("PostTick", &CPlayer::PostTick)
 			.addFunction("Snap", &CPlayer::Snap)
+			// Needed for manual lua snapping!
+			.addFunction("AddClientInfoSnap", &CPlayer::AddClientInfoSnap)
+			.addFunction("AddPlayerInfoSnap", &CPlayer::AddPlayerInfoSnap)
+			.addFunction("AddSpectatorInfoSnap", &CPlayer::AddSpectatorInfoSnap)
 
 			.addFunction("OnDirectInput", &CPlayer::OnDirectInput)
 			.addFunction("OnPredictedInput", &CPlayer::OnPredictedInput)
@@ -355,8 +376,6 @@ void CLua::RegisterLuaCallbacks()
 			.addData("SpectatorID", &CPlayer::m_SpectatorID)
 			.addData("IsReady", &CPlayer::m_IsReady)
 			.addFunction("GetActLatency", &CPlayer::GetActLatency)
-			.addData("SpectatorID", &CPlayer::m_SpectatorID)
-			.addData("IsReady", &CPlayer::m_IsReady)
 
 			.addData("Vote", &CPlayer::m_Vote)
 			.addData("VotePos", &CPlayer::m_VotePos)
@@ -370,7 +389,7 @@ void CLua::RegisterLuaCallbacks()
 			.addData("LastEmote", &CPlayer::m_LastEmote)
 			.addData("LastKill", &CPlayer::m_LastKill)
 
-			// TODO add struct m_TeeInfos
+			.addData("TeeInfos", &CPlayer::m_TeeInfos)
 
 			.addData("RespawnTick", &CPlayer::m_RespawnTick)
 			.addData("DieTick", &CPlayer::m_DieTick)
@@ -379,6 +398,8 @@ void CLua::RegisterLuaCallbacks()
 			.addData("ForceBalanced", &CPlayer::m_ForceBalanced)
 			.addData("LastActionTick", &CPlayer::m_LastActionTick)
 			.addData("TeamChangeTick", &CPlayer::m_TeamChangeTick)
+
+			.addFunction("IsBot", &CPlayer::IsBot)
 
 			// TODO add struct m_LatestActivity
 
@@ -489,9 +510,6 @@ void CLua::RegisterLuaCallbacks()
 			.addData("AttackTick", &CCharacter::m_AttackTick)
 			.addData("ReloadTimer", &CCharacter::m_ReloadTimer)
 
-			.addData("AttackTick", &CCharacter::m_AttackTick)
-			.addData("ReloadTimer", &CCharacter::m_ReloadTimer)
-
 			.addFunction("SetEmote", &CCharacter::SetEmote)
 
 			.addProperty("IsAlive", &CCharacter::IsAlive)
@@ -501,6 +519,7 @@ void CLua::RegisterLuaCallbacks()
 			.addData("PhysicsEnabled", &CCharacter::m_PhysicsEnabled)
 			.addFunction("GetCore", &CCharacter::GetCore) // -> [CCharacterCore]
 			.addProperty("Core", &CCharacter::GetCore)
+			.addFunction("GetInput", &CCharacter::GetInput)
 			.addProperty("Tuning", &CCharacter::LuaGetTuning, &CCharacter::LuaWriteTuning)
 
 			.addData("Health", &CCharacter::m_Health)

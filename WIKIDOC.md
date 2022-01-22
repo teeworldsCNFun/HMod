@@ -13,18 +13,17 @@ Contents
     
 # Prependix
 ## Definition style
-Definitions in this documentation are denoted in a cpp-like fashion to indicate the types
-the api is using for the respective data or calls.
+本文档中的定义以类似cpp的方式表示，以指示类型
+api正用于相应的数据或调用。
 
-Since lua only knows the 'number' type for numerical values but the api differentiates between
-'int' and 'float', this documentation will do so either. Both refer to the 'number' datatype.
-Passing anything but whole numbers to 'int' will be syntactically valid, but will get truncated
-and thus might produce unexpected results.
+因为lua只知道数值的“number”类型，但api区分
+“int”和“float”，本文档也会这样做。两者都引用“number”数据类型。
+向“int”传递除整数以外的任何内容在语法上都是有效的，但会被截断
+因此可能会产生意想不到的结果。
 
 ## Data accessing
-The api is designed in an object-oriented way using lua tables to provide a clean structure
-that represents the native code structure most closely. When using the api you must stick
-to a certain protocol closely in order for your scripts to work properly:
+api是以面向对象的方式设计的，使用lua表来提供干净的结构表示最接近本机代码结构的。使用api时，必须坚持
+要使脚本正常工作，请严格遵守特定协议：
 
 - **[data]**
     - this variable is accessed using standard lua table referencing syntax,

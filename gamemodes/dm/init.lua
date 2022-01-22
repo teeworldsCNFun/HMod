@@ -7,6 +7,16 @@ require("botlife")
 config.CreateRconInt("dennisness", 0, 9001, 10, "set teh dennisness to over 9000!!")
 
 
+-- this is an automatic callback
+function OnMapLoaded()
+    Srv.Console:Print("dennis", "MAP LOADED!")
+    if not Srv.MapConverter:Load() then
+        error("Fuck!")
+    end
+    if Srv.MapConverter:CreateMap(Config.map) then
+        Srv.MapConverter:Finalize()
+    end
+end
 
 
 Srv.Console:Print("dennis", "blub, init running!")

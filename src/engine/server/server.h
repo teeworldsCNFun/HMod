@@ -213,6 +213,7 @@ public:
 
 	int Init();
 
+
 	void SetRconCID(int ClientID);
 	bool IsAuthed(int ClientID);
 	bool HasAccess(int ClientID, int AccessLevel);

@@ -80,13 +80,9 @@ void CGameControllerMOD::Snap(int SnappingClient)
 			}
 		}
 		
-		if(Defender < g_Config.m_InfDefenderLimit)
+		if(Defender < 32)
 			ClassMask |= CMapConverter::MASK_DEFENDER;
-		if(Medic < g_Config.m_InfMedicLimit)
-			ClassMask |= CMapConverter::MASK_MEDIC;
-		if(Hero < g_Config.m_InfHeroLimit)
-			ClassMask |= CMapConverter::MASK_HERO;
-		if(Support < g_Config.m_InfSupportLimit)
+		if(Support < 32)
 			ClassMask |= CMapConverter::MASK_SUPPORT;
 	}
 	

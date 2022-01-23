@@ -189,7 +189,7 @@ void CLua::RegisterLuaCallbacks()
 
 			.addFunction("Distance", &CCollision::Distance)
 			.addFunction("Normalize", &CCollision::Normalize)
-			.addFunction("Rotate", &CCollision::Rotate)
+			.addFunction("Rotate", &CCollision::Rotate_x)
 			.addFunction("ClosestPointOnLine", &CCollision::ClosestPointOnLine)
 
 			.addFunction("CheckPoint", &CCollision::CheckPointLua)

@@ -410,14 +410,6 @@ set(SOURCE_FILES
     src/game/server/entities/pickup.h
     src/game/server/entities/projectile.cpp
     src/game/server/entities/projectile.h
-    src/game/server/gamemodes/ctf.cpp
-    src/game/server/gamemodes/ctf.h
-    src/game/server/gamemodes/dm.cpp
-    src/game/server/gamemodes/dm.h
-    src/game/server/gamemodes/mod.cpp
-    src/game/server/gamemodes/mod.h
-    src/game/server/gamemodes/tdm.cpp
-    src/game/server/gamemodes/tdm.h
     src/game/server/entity.cpp
     src/game/server/entity.h
     src/game/server/eventhandler.cpp

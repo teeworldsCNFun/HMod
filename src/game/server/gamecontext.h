@@ -70,11 +70,16 @@ class CGameContext : public IGameServer, protected CLuaClass
 	void Construct(int Resetting);
 
 	bool m_Resetting;
+
+public:
+	int m_ZoneHandle_TeeWorlds;
+
 public:
 	IServer *Server() const { return m_pServer; }
 	class IConsole *Console() { return m_pConsole; }
 	CCollision *Collision() { return &m_Collision; }
 	CTuningParams *Tuning() { return &m_Tuning; }
+	virtual class CLayers *Layers() { return &m_Layers; }
 
 	CGameContext();
 	~CGameContext();
@@ -188,7 +193,7 @@ public:
 	class CCharacter *CreateEntityCharacter(int ClientID);
 	class CFlag *CreateEntityFlag(int Team);
 	class CLaser *CreateEntityLaser(vec2 Pos, vec2 Direction, float StartEnergy, int Owner);
-	class CPickup *CreateEntityPickup(int Type, int SubType);
+	class CPickup *CreateEntityPickup(int Type, int SubType, vec2 Pivot, vec2 RelPos, int PosEnv);
 	class CProjectile *CreateEntityProjectile(int Type, int Owner, vec2 Pos, vec2 Dir, CProjectileProperties Props, int SoundImpact, int Weapon);
 	class CLuaEntity *CreateEntityCustom(const char *pClass);
 	int CreateBot();

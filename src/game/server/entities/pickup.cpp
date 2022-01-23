@@ -5,8 +5,8 @@
 #include <engine/shared/config.h>
 #include "pickup.h"
 
-CPickup::CPickup(CGameWorld *pGameWorld, int Type, int SubType)
-: CEntity(pGameWorld, CGameWorld::ENTTYPE_PICKUP, "Pickup")
+CPickup::CPickup(CGameWorld *pGameWorld, int Type, int SubType, vec2 Pivot, vec2 RelPos, int PosEnv)
+: CAnimatedEntity(pGameWorld, CGameWorld::ENTTYPE_PICKUP, Pivot, RelPos, PosEnv)
 {
 	m_Type = Type;
 	m_Subtype = SubType;
@@ -30,6 +30,8 @@ void CPickup::Reset()
 void CPickup::Tick()
 {
 	MACRO_LUA_EVENT()
+
+	CAnimatedEntity::Tick();
 
 	// wait for respawn
 	if(m_SpawnTick > 0)

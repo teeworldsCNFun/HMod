@@ -37,6 +37,7 @@ public:
 
 	IServer() : CLuaClass("Server") {}
 
+	virtual int GetTimeShiftUnit() const = 0;
 	int Tick() const { return m_CurrentGameTick; }
 	int TickSpeed() const { return m_TickSpeed; }
 
@@ -208,7 +209,7 @@ public:
 	virtual const char *Version() = 0;
 	virtual const char *NetVersion() = 0;
 
-	virtual int GetTimeShiftUnit() const = 0;
+	virtual class CLayers *Layers() = 0;
 };
 
 extern IGameServer *CreateGameServer();

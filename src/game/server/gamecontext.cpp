@@ -17,7 +17,6 @@
 #include <game/server/entities/lua_entity.h>
 #include "gamemodes/dm.h"
 #include "gamemodes/tdm.h"
-#include "gamemodes/ctf.h"
 #include "gamemodes/mod.h"
 #include <engine/server/luabinding.h>
 
@@ -540,6 +539,8 @@ void CGameContext::OnTick()
 {
 	// check tuning
 	CheckPureTuning();
+
+	m_Collision.SetTime(m_pController->GetTime());
 
 	// copy tuning
 	m_World.m_Core.m_Tuning = m_Tuning;
@@ -1634,6 +1635,9 @@ bool CGameContext::OnInit(/*class IKernel *pKernel*/)
 	m_Layers.Init(Kernel());
 	m_Collision.Init(&m_Layers);
 
+	//Get zones
+	m_ZoneHandle_TeeWorlds = m_Collision.GetZoneHandle("teeworlds");
+
 	// this is a friggin lua server, this shit is always modded bro!
 	m_pController = new CGameControllerMOD(this);
 
@@ -1657,8 +1661,78 @@ bool CGameContext::OnInit(/*class IKernel *pKernel*/)
 
 			if(Index >= ENTITY_OFFSET)
 			{
-				vec2 Pos(x*32.0f+16.0f, y*32.0f+16.0f);
-				m_pController->OnEntity(Index-ENTITY_OFFSET, Pos);
+				vec2 Pivot(x*32.0f+16.0f, y*32.0f+16.0f);
+				vec2 P0(x*32.0f, y*32.0f);
+				vec2 P1((x+1)*32.0f, y*32.0f);
+				vec2 P2(x*32.0f, (y+1)*32.0f);
+				vec2 P3((x+1)*32.0f, (y+1)*32.0f);
+				switch(Index - ENTITY_OFFSET)
+				{
+					case ENTITY_SPAWN:
+						m_pController->OnEntity("twSpawn", Pivot, P0, P1, P2, P3, -1);
+						break;
+					case ENTITY_SPAWN_RED:
+						m_pController->OnEntity("twSpawnRed", Pivot, P0, P1, P2, P3, -1);
+						break;
+					case ENTITY_SPAWN_BLUE:
+						m_pController->OnEntity("twSpawnBlue", Pivot, P0, P1, P2, P3, -1);
+						break;
+					case ENTITY_FLAGSTAND_RED:
+						m_pController->OnEntity("twFlagStandRed", Pivot, P0, P1, P2, P3, -1);
+						break;
+					case ENTITY_FLAGSTAND_BLUE:
+						m_pController->OnEntity("twFlagStandBlue", Pivot, P0, P1, P2, P3, -1);
+						break;
+					case ENTITY_ARMOR_1:
+						m_pController->OnEntity("twArmor", Pivot, P0, P1, P2, P3, -1);
+						break;
+					case ENTITY_HEALTH_1:
+						m_pController->OnEntity("twHealth", Pivot, P0, P1, P2, P3, -1);
+						break;
+					case ENTITY_WEAPON_SHOTGUN:
+						m_pController->OnEntity("twShotgun", Pivot, P0, P1, P2, P3, -1);
+						break;
+					case ENTITY_WEAPON_GRENADE:
+						m_pController->OnEntity("twGrenade", Pivot, P0, P1, P2, P3, -1);
+						break;
+					case ENTITY_POWERUP_NINJA:
+						m_pController->OnEntity("twNinja", Pivot, P0, P1, P2, P3, -1);
+						break;
+					case ENTITY_WEAPON_RIFLE:
+						m_pController->OnEntity("twRifle", Pivot, P0, P1, P2, P3, -1);
+						break;
+				}
+			}
+		}
+	}
+
+	// create all entities from entity layers
+	if(m_Layers.EntityGroup())
+	{
+		char aLayerName[12];
+
+		const CMapItemGroup* pGroup = m_Layers.EntityGroup();
+		for(int l = 0; l < pGroup->m_NumLayers; l++)
+		{
+			CMapItemLayer *pLayer = m_Layers.GetLayer(pGroup->m_StartLayer+l);
+			if(pLayer->m_Type == LAYERTYPE_QUADS)
+			{
+				CMapItemLayerQuads *pQLayer = (CMapItemLayerQuads *)pLayer;
+
+				IntsToStr(pQLayer->m_aName, sizeof(aLayerName)/sizeof(int), aLayerName);
+
+				const CQuad *pQuads = (const CQuad *) Kernel()->RequestInterface<IMap>()->GetDataSwapped(pQLayer->m_Data);
+
+				for(int q = 0; q < pQLayer->m_NumQuads; q++)
+				{
+					vec2 P0(fx2f(pQuads[q].m_aPoints[0].x), fx2f(pQuads[q].m_aPoints[0].y));
+					vec2 P1(fx2f(pQuads[q].m_aPoints[1].x), fx2f(pQuads[q].m_aPoints[1].y));
+					vec2 P2(fx2f(pQuads[q].m_aPoints[2].x), fx2f(pQuads[q].m_aPoints[2].y));
+					vec2 P3(fx2f(pQuads[q].m_aPoints[3].x), fx2f(pQuads[q].m_aPoints[3].y));
+					vec2 Pivot(fx2f(pQuads[q].m_aPoints[4].x), fx2f(pQuads[q].m_aPoints[4].y));
+
+					m_pController->OnEntity(aLayerName, Pivot, P0, P1, P2, P3, pQuads[q].m_PosEnv);
+				}
 			}
 		}
 	}
@@ -1740,9 +1814,9 @@ CLaser *CGameContext::CreateEntityLaser(vec2 Pos, vec2 Direction, float StartEne
 	return new CLaser(&m_World, Pos, Direction, StartEnergy, Owner);
 }
 
-CPickup *CGameContext::CreateEntityPickup(int Type, int SubType)
+CPickup *CGameContext::CreateEntityPickup(int Type, int SubType, vec2 Pivot, vec2 RelPos, int PosEnv)
 {
-	return new CPickup(&m_World, Type, SubType);
+	return new CPickup(&m_World, Type, SubType, Pivot, RelPos, PosEnv);
 }
 
 CProjectile *CGameContext::CreateEntityProjectile(int Type, int Owner, vec2 Pos, vec2 Dir, CProjectileProperties Props, int SoundImpact, int Weapon)

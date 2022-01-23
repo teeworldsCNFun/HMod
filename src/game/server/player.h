@@ -73,6 +73,7 @@ public:
 	int m_SpectatorID;
 
 	bool m_IsReady;
+	bool m_IsInGame;
 
 	//
 	int m_Vote;

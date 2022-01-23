@@ -5,6 +5,7 @@
 
 #include <base/vmath.h>
 #include <base/math.h>
+#include <base/tl/array.h>
 
 class CCollision
 {
@@ -33,6 +34,14 @@ public:
 	void MovePoint(vec2 *pInoutPos, vec2 *pInoutVel, float Elasticity, int *pBounces);
 	void MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, float Elasticity);
 	bool TestBox(vec2 Pos, vec2 Size);
+	void SetTime(double Time) { m_Time = Time; }
+
+	//This function return an Handle to access all zone layers with the name "pName"
+	int GetZoneHandle(const char* pName);
+	int GetZoneValueAt(int ZoneHandle, float x, float y);
+
+	double m_Time;
+	array< array<int> > m_Zones;
 
 	bool IsTileSolid(int x, int y);
 	int GetTile(int x, int y);
@@ -41,7 +50,7 @@ public:
 	// lua
 	float Distance(const vec2& s, const vec2& e) { return distance(s, e); }
 	vec2 Normalize(const vec2& v) { return normalize(v); }
-	vec2 Rotate(const vec2& v, float angle) { return rotate(v, angle); }
+	vec2 Rotate_x(const vec2& v, float angle) { return rotate(v, angle); }
 	vec2 ClosestPointOnLine(const vec2& s, const vec2& e, const vec2& v) { return closest_point_on_line(s, e, v); }
 };
 

@@ -632,20 +632,14 @@ void CMapConverter::Finalize()
 					
 					switch(i)
 					{
-						case MENUCLASS_ENGINEER:
-						case MENUCLASS_SOLDIER:
-						case MENUCLASS_SCIENTIST:
-						case MENUCLASS_BIOLOGIST:
+						case MENUCLASS_BLOCKER:
 							ClassMask = MASK_DEFENDER;
 							break;
 						case MENUCLASS_MEDIC:
-							ClassMask = MASK_MEDIC;
-							break;
-						case MENUCLASS_HERO:
-							ClassMask = MASK_HERO;
+							ClassMask = MASK_SUPPORT;
 							break;
 						default:
-							ClassMask = MASK_SUPPORT;
+							ClassMask = MASK_MEDIC;
 					}
 					
 					//Create Animation for enable/disable simulation
@@ -776,32 +770,11 @@ void CMapConverter::Finalize()
 							case MENUCLASS_RANDOM:
 								AddTeeLayer("Random", SniperImageID, Pos, 64.0f, m_NumEnvs-1, true);
 								break;
-							case MENUCLASS_ENGINEER:
-								AddTeeLayer("Engineer", EngineerImageID, Pos, 64.0f, m_NumEnvs-1);
-								break;
-							case MENUCLASS_SOLDIER:
-								AddTeeLayer("Soldier", SoldierImageID, Pos, 64.0f, m_NumEnvs-1);
-								break;
-							case MENUCLASS_SCIENTIST:
-								AddTeeLayer("Scientist", ScientistImageID, Pos, 64.0f, m_NumEnvs-1);
-								break;
-							case MENUCLASS_BIOLOGIST:
-								AddTeeLayer("Biologist", BiologistImageID, Pos, 64.0f, m_NumEnvs-1);
-								break;
 							case MENUCLASS_MEDIC:
 								AddTeeLayer("Medic", MedicImageID, Pos, 64.0f, m_NumEnvs-1);
 								break;
-							case MENUCLASS_HERO:
-								AddTeeLayer("Hero", HeroImageID, Pos, 64.0f, m_NumEnvs-1);
-								break;
-							case MENUCLASS_NINJA:
-								AddTeeLayer("Ninja", NinjaImageID, Pos, 64.0f, m_NumEnvs-1);
-								break;
-							case MENUCLASS_MERCENARY:
-								AddTeeLayer("Mercenary", MercenaryImageID, Pos, 64.0f, m_NumEnvs-1);
-								break;
-							case MENUCLASS_SNIPER:
-								AddTeeLayer("Sniper", SniperImageID, Pos, 64.0f, m_NumEnvs-1);
+							case MENUCLASS_BLOCKER:
+								AddTeeLayer("Blocker", NinjaImageID, Pos, 64.0f, m_NumEnvs-1);
 								break;
 						}
 					}

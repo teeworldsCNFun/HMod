@@ -1,0 +1,12 @@
+#ifndef GAME_SERVER_CLASSES_H
+#define GAME_SERVER_CLASSES_H
+
+enum
+{
+    PLAYERCLASS_NONE = 0,
+
+    PLAYERCLASS_BLOCKER,
+    PLAYERCLASS_MEDIC,
+};
+
+#endif

@@ -4,6 +4,7 @@
 #include <engine/shared/config.h>
 #include <game/server/gamecontext.h>
 #include <game/mapitems.h>
+#include <game/server/classes.h>
 
 #include "character.h"
 #include "laser.h"
@@ -493,6 +494,14 @@ void CCharacter::DDRaceTick()
 	}
 }
 
+int CCharacter::GetClass()
+{
+	if(!m_pPlayer)
+		return PLAYERCLASS_NONE;
+	else
+		return m_pPlayer->GetClass();
+}
+
 void CCharacter::DDRacePostCoreTick()
 {
 	if (m_EndlessHook)
@@ -651,6 +660,12 @@ void CCharacter::Tick()
 	}
 
 	DDRaceTick();
+
+	if(m_Health >= 1 && m_pPlayer && m_DeepFreeze)
+	{
+		UnDeep();
+		GameServer()->CreateSound(m_Pos, SOUND_CTF_CAPTURE);
+	}
 
 	m_Core.m_Input = m_Input;
 
@@ -919,10 +934,10 @@ bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
 	}
 
 	// check for death
-	if(m_Health <= 0)
+	if(m_Health <= 0 && !m_DeepFreeze)
 	{
-		Die(From, Weapon);
-
+		//Die(From, Weapon);
+		DeepFreeze();
 		// set attacker's face to happy (taunt!)
 		if (From >= 0 && From != m_pPlayer->GetCID() && GameServer()->m_apPlayers[From])
 		{
@@ -931,11 +946,21 @@ bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
 			{
 				pChr->m_EmoteType = EMOTE_HAPPY;
 				pChr->m_EmoteStop = Server()->Tick() + Server()->TickSpeed();
+				GameServer()->m_apPlayers[From]->m_Score++;
+				// send the kill message
+				CNetMsg_Sv_KillMsg Msg;
+				Msg.m_Killer = GameServer()->m_apPlayers[From]->GetCID();
+				Msg.m_Victim = m_pPlayer->GetCID();
+				Msg.m_Weapon = Weapon;
+				Msg.m_ModeSpecial = 1;
+				Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
 			}
 		}
 
 		return false;
 	}
+	else if(m_Health > 0 && m_DeepFreeze)
+		UnDeep();
 
 	if (Dmg > 2)
 		GameServer()->CreateSound(m_Pos, SOUND_PLAYER_PAIN_LONG);

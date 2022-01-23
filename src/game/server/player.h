@@ -19,6 +19,16 @@ public:
 
 	void Init(int CID);
 
+	int m_MapMenuItem;
+	int GetClass();
+	void SetClassSkin(int newClass, int State = 0);
+	void SetClass(int newClass);
+
+	int MapMenu() { return (m_Team != TEAM_SPECTATORS) ? m_MapMenu : 0; };
+	void OpenMapMenu(int Menu);
+	void CloseMapMenu();
+	bool MapMenuClickable();
+
 	void TryRespawn();
 	void Respawn();
 	void SetTeam(int Team, bool DoChatMsg=true);
@@ -118,6 +128,9 @@ private:
 	CCharacter *m_pCharacter;
 	CGameContext *m_pGameServer;
 
+	int m_Class;
+	int m_MapMenu;
+	int m_MapMenuTick;
 	//
 	bool m_Spawning;
 	int m_ClientID;
@@ -126,6 +139,56 @@ private:
 protected:
 	CGameContext *GameServer() const { return m_pGameServer; }
 	IServer *Server() const;
+};
+
+enum
+{
+	PLAYERITER_ALL=0x0,
+	
+	PLAYERITER_COND_READY=0x1,
+	PLAYERITER_COND_SPEC=0x2,
+	PLAYERITER_COND_NOSPEC=0x4,
+	
+	PLAYERITER_INGAME = PLAYERITER_COND_READY | PLAYERITER_COND_NOSPEC,
+	PLAYERITER_SPECTATORS = PLAYERITER_COND_READY | PLAYERITER_COND_SPEC,
+};
+
+template<int FLAGS>
+class CPlayerIterator
+{
+private:
+	CPlayer** m_ppPlayers;
+	int m_ClientID;
+	
+public:
+	
+	CPlayerIterator(CPlayer** ppPlayers) :
+		m_ppPlayers(ppPlayers)
+	{
+		Reset();
+	}
+	
+	inline bool Next()
+	{
+		for(m_ClientID = m_ClientID+1; m_ClientID<MAX_CLIENTS; m_ClientID++)
+		{
+			CPlayer* pPlayer = Player();
+			
+			if(!pPlayer) continue;
+			if((FLAGS & PLAYERITER_COND_READY) && (!pPlayer->m_IsInGame)) continue;
+			if((FLAGS & PLAYERITER_COND_NOSPEC) && (pPlayer->GetTeam() == TEAM_SPECTATORS)) continue;
+			if((FLAGS & PLAYERITER_COND_SPEC) && (pPlayer->GetTeam() != TEAM_SPECTATORS)) continue;
+			
+			return true;
+		}
+		
+		return false;
+	}
+	
+	inline void Reset() { m_ClientID = -1; }
+	
+	inline CPlayer* Player() { return m_ppPlayers[m_ClientID]; }
+	inline int ClientID() { return m_ClientID; }
 };
 
 #endif

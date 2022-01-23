@@ -213,6 +213,11 @@ void CPlayer::Snap(int SnappingClient)
 	}
 }
 
+int CPlayer::GetClass()
+{
+	return m_Class;
+}
+
 void CPlayer::FakeSnap()
 {
 	// This is problematic when it's sent before we know whether it's a non-64-player-client
@@ -347,6 +352,23 @@ void CPlayer::KillCharacter(int Weapon)
 		delete m_pCharacter;
 		m_pCharacter = 0;
 	}
+}
+
+void CPlayer::OpenMapMenu(int Menu)
+{
+	m_MapMenu = Menu;
+	m_MapMenuTick = 0;
+}
+
+void CPlayer::CloseMapMenu()
+{
+	m_MapMenu = 0;
+	m_MapMenuTick = -1;
+}
+
+bool CPlayer::MapMenuClickable()
+{
+	return (m_MapMenu > 0 && (m_MapMenuTick > Server()->TickSpeed()/2));
 }
 
 void CPlayer::Respawn()

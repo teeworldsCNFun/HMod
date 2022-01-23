@@ -68,6 +68,9 @@ public:
 
 class CServer : public IServer
 {
+	int m_TimeShiftUnit;
+	virtual int GetTimeShiftUnit() const { return m_TimeShiftUnit; } //In ms
+	
 	class IGameServer *m_pGameServer;
 	class IConsole *m_pConsole;
 	class IStorage *m_pStorage;
@@ -143,7 +146,6 @@ public:
 		bool SupportsAny(unsigned int BitMask) const { return (m_ClientSupportFlags&BitMask) != 0; }
 		bool SupportsAll(unsigned int BitMask) const { return (m_ClientSupportFlags&BitMask) == BitMask; }
 		bool Supports(unsigned int BitMask) const { return SupportsAny(BitMask); }
-
 		const IConsole::CCommandInfo *m_pRconCmdToSend;
 
 		void Reset();
@@ -212,7 +214,6 @@ public:
 	//int TickSpeed()
 
 	int Init();
-
 
 	void SetRconCID(int ClientID);
 	bool IsAuthed(int ClientID);

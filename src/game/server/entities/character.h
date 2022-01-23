@@ -110,6 +110,10 @@ public:
 	void SetEndlessHook(bool Active) { m_EndlessHook = Active; }
 	void SetSuperJump(bool Active) { m_SuperJump = Active; }
 
+	void OpenClassChooser();
+	int GetClass();
+
+	void SetClass(int ClassChoosed);
 	// for per-tee tuning
 	CTuningParams *LuaGetTuning() const { return const_cast<CTuningParams*>((const CTuningParams *)&m_TuningDiff.m_Data); }
 	void LuaWriteTuning(const CTuningParams& NewTuning) { m_TuningDiff.m_Data = NewTuning; }
